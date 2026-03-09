@@ -2,6 +2,8 @@ import SwiftUI
 
 struct RemoteCoverView: View {
     let url: URL?
+    var width: CGFloat = 64
+    var height: CGFloat = 96
 
     var body: some View {
         AsyncImage(url: url) { phase in
@@ -18,7 +20,7 @@ struct RemoteCoverView: View {
                 placeholder
             }
         }
-        .frame(width: 64, height: 96)
+        .frame(width: width, height: height)
         .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 
