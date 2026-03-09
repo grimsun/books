@@ -1,5 +1,31 @@
 import Foundation
 
+struct PopularBookTile: Identifiable, Hashable {
+    let id: String
+    let assetName: String
+    let bookID: String
+}
+
+struct CuratedBookList: Identifiable, Hashable {
+    let id: String
+    let title: String
+    let subtitle: String
+    let bookIDs: [String]
+}
+
+struct MoodRecommendationShelf: Identifiable, Hashable {
+    let id: String
+    let title: String
+    let recommendationBookIDs: [String]
+}
+
+struct ReadingDayStatus: Identifiable, Hashable {
+    let id: String
+    let label: String
+    var isCompleted: Bool
+    let isToday: Bool
+}
+
 enum MockSeedData {
     static let leGuin = Author(id: "author_leguin", name: "Ursula K. Le Guin")
     static let martel = Author(id: "author_martel", name: "Yann Martel")
@@ -89,6 +115,14 @@ enum MockSeedData {
             progress: ReadingProgress(progressUnit: .page, progressValue: 128)
         ),
         LibraryItem(
+            book: books[3],
+            shelf: .reading,
+            owned: false,
+            personalRating: nil,
+            privateNote: "Very atmospheric.",
+            progress: ReadingProgress(progressUnit: .page, progressValue: 221)
+        ),
+        LibraryItem(
             book: books[2],
             shelf: .finished,
             owned: true,
@@ -110,6 +144,61 @@ enum MockSeedData {
         RecommendationItem(book: books[0], reason: "Similar to the speculative fiction you save most often", score: 0.93),
         RecommendationItem(book: books[3], reason: "Blends literary tone with strange, immersive worldbuilding", score: 0.89),
         RecommendationItem(book: books[4], reason: "A high-signal literary pick with strong completion rates", score: 0.81)
+    ]
+
+    static let popularTiles: [PopularBookTile] = [
+        PopularBookTile(id: "popular_1", assetName: "Popular1", bookID: books[4].id),
+        PopularBookTile(id: "popular_2", assetName: "Popular2", bookID: books[0].id),
+        PopularBookTile(id: "popular_3", assetName: "Popular3", bookID: books[2].id),
+        PopularBookTile(id: "popular_4", assetName: "Popular4", bookID: books[3].id),
+        PopularBookTile(id: "popular_5", assetName: "Popular5", bookID: books[1].id),
+        PopularBookTile(id: "popular_6", assetName: "Popular6", bookID: books[0].id),
+        PopularBookTile(id: "popular_7", assetName: "Popular7", bookID: books[3].id),
+        PopularBookTile(id: "popular_8", assetName: "Popular8", bookID: books[2].id),
+        PopularBookTile(id: "popular_9", assetName: "Popular9", bookID: books[4].id),
+        PopularBookTile(id: "popular_10", assetName: "Popular2", bookID: books[1].id),
+        PopularBookTile(id: "popular_11", assetName: "Popular4", bookID: books[0].id),
+        PopularBookTile(id: "popular_12", assetName: "Popular7", bookID: books[2].id)
+    ]
+
+    static let curatedLists: [CuratedBookList] = [
+        CuratedBookList(
+            id: "list_fantasy",
+            title: "Best fantasy books",
+            subtitle: "Worldbuilding-heavy picks",
+            bookIDs: [books[0].id, books[3].id, books[1].id, books[2].id, books[4].id]
+        ),
+        CuratedBookList(
+            id: "list_literary",
+            title: "Quiet literary novels",
+            subtitle: "Slow-burn and memorable",
+            bookIDs: [books[4].id, books[3].id, books[1].id, books[2].id]
+        ),
+        CuratedBookList(
+            id: "list_speculative",
+            title: "Speculative essentials",
+            subtitle: "Canonical and modern",
+            bookIDs: [books[1].id, books[2].id, books[0].id, books[3].id, books[4].id]
+        )
+    ]
+
+    static let moodShelves: [MoodRecommendationShelf] = [
+        MoodRecommendationShelf(id: "mood_immersive", title: "Immersive", recommendationBookIDs: [books[3].id, books[1].id, books[0].id]),
+        MoodRecommendationShelf(id: "mood_short", title: "Short", recommendationBookIDs: [books[0].id, books[2].id, books[4].id]),
+        MoodRecommendationShelf(id: "mood_strange", title: "Strange", recommendationBookIDs: [books[3].id, books[2].id, books[1].id]),
+        MoodRecommendationShelf(id: "mood_comfort", title: "Comfort", recommendationBookIDs: [books[4].id, books[0].id, books[3].id]),
+        MoodRecommendationShelf(id: "mood_heavy", title: "Heavy", recommendationBookIDs: [books[2].id, books[1].id, books[4].id]),
+        MoodRecommendationShelf(id: "mood_smart", title: "Smart", recommendationBookIDs: [books[1].id, books[3].id, books[2].id])
+    ]
+
+    static let weeklyReadingStatus: [ReadingDayStatus] = [
+        ReadingDayStatus(id: "mon", label: "M", isCompleted: true, isToday: false),
+        ReadingDayStatus(id: "tue", label: "T", isCompleted: false, isToday: false),
+        ReadingDayStatus(id: "wed", label: "W", isCompleted: true, isToday: false),
+        ReadingDayStatus(id: "thu", label: "T", isCompleted: false, isToday: false),
+        ReadingDayStatus(id: "fri", label: "F", isCompleted: true, isToday: false),
+        ReadingDayStatus(id: "sat", label: "S", isCompleted: false, isToday: false),
+        ReadingDayStatus(id: "sun", label: "S", isCompleted: false, isToday: true)
     ]
 
     static let defaultUser = User(id: "user_vlad", displayName: "Vlad")

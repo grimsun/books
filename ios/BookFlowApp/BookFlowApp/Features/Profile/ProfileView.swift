@@ -27,6 +27,12 @@ struct ProfileView: View {
                 preferenceLine(title: "Favorite authors", value: profile.favoriteAuthors.map(\.name).joined(separator: ", "))
                 preferenceLine(title: "Reading pace", value: profile.readingPace.title)
             }
+
+            Section("App") {
+                NavigationLink("Settings") {
+                    SettingsView(session: environment.session)
+                }
+            }
         }
         .navigationTitle("Profile")
         .task {
@@ -44,5 +50,19 @@ struct ProfileView: View {
                 .foregroundStyle(.secondary)
             Text(value.isEmpty ? "Not set" : value)
         }
+    }
+}
+
+private struct SettingsView: View {
+    @Bindable var session: SessionStore
+
+    var body: some View {
+        List {
+            Section("Home") {
+                Toggle("Show weekly rhythm", isOn: $session.showWeeklyRhythm)
+            }
+        }
+        .navigationTitle("Settings")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }

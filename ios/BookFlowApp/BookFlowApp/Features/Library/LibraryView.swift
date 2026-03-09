@@ -3,8 +3,13 @@ import SwiftUI
 struct LibraryView: View {
     let environment: AppEnvironment
 
-    @State private var selectedShelf: Shelf? = nil
+    @State private var selectedShelf: Shelf?
     @State private var items: [LibraryItem] = []
+
+    init(environment: AppEnvironment, initialShelf: Shelf? = nil) {
+        self.environment = environment
+        _selectedShelf = State(initialValue: initialShelf)
+    }
 
     var body: some View {
         List {

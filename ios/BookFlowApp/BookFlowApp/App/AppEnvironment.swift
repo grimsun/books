@@ -5,6 +5,7 @@ import Observation
 final class SessionStore {
     var currentUser: User?
     var hasCompletedOnboarding = false
+    var showWeeklyRhythm = true
 }
 
 @Observable
