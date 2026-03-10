@@ -8,41 +8,46 @@ struct HomeView: View {
     @State private var currentlyReading: [LibraryItem] = []
     @State private var weeklyRhythm = MockSeedData.weeklyReadingStatus
 
+    private let pageBackground = LinearGradient(
+        colors: [
+            Color(red: 0.99, green: 0.97, blue: 0.94),
+            Color(red: 0.94, green: 0.96, blue: 0.92),
+            Color(red: 0.95, green: 0.95, blue: 0.90)
+        ],
+        startPoint: .top,
+        endPoint: .bottom
+    )
+
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                header
+        ZStack(alignment: .top) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    header
 
-                if environment.session.showWeeklyRhythm {
-                    WeeklyRhythmStrip(days: $weeklyRhythm)
+                    if environment.session.showWeeklyRhythm {
+                        WeeklyRhythmStrip(days: $weeklyRhythm)
+                    }
+
+                    CurrentlyReadingSection(environment: environment, items: currentlyReading)
+
+                    RecommendedSection(environment: environment, items: recommendations)
+
+                    PopularSection(environment: environment, tiles: MockSeedData.popularTiles)
+
+                    MoodSection(environment: environment, shelves: MockSeedData.moodShelves)
+
+                    ListsSection(environment: environment, curatedLists: MockSeedData.curatedLists)
                 }
-
-                CurrentlyReadingSection(environment: environment, items: currentlyReading)
-
-                RecommendedSection(environment: environment, items: recommendations)
-
-                PopularSection(environment: environment, tiles: MockSeedData.popularTiles)
-
-                MoodSection(environment: environment, shelves: MockSeedData.moodShelves)
-
-                ListsSection(environment: environment, curatedLists: MockSeedData.curatedLists)
+                .padding(.horizontal, 14)
+                .padding(.top, 12)
+                .padding(.bottom, 24)
             }
-            .padding(.horizontal, 14)
-            .padding(.top, 12)
-            .padding(.bottom, 24)
         }
-        .background(
-            LinearGradient(
-                colors: [
-                    Color(red: 0.99, green: 0.97, blue: 0.94),
-                    Color(red: 0.94, green: 0.96, blue: 0.92),
-                    Color(red: 0.95, green: 0.95, blue: 0.90)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
-        )
+        .background(pageBackground.ignoresSafeArea())
+        .overlay(alignment: .top) {
+            TopBezelFade(background: pageBackground)
+                .allowsHitTesting(false)
+        }
         .navigationBarTitleDisplayMode(.inline)
         .task {
             if recommendations.isEmpty {
@@ -79,6 +84,29 @@ struct HomeView: View {
                     .stroke(Color.white.opacity(0.6), lineWidth: 1)
             )
         }
+    }
+}
+
+private struct TopBezelFade: View {
+    let background: LinearGradient
+
+    var body: some View {
+        VStack(spacing: 0) {
+            background
+                .frame(height: 18)
+
+            LinearGradient(
+                colors: [
+                    Color(red: 0.99, green: 0.97, blue: 0.94),
+                    Color(red: 0.99, green: 0.97, blue: 0.94).opacity(0.94),
+                    Color(red: 0.99, green: 0.97, blue: 0.94).opacity(0.0)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(height: 54)
+        }
+        .ignoresSafeArea(edges: .top)
     }
 }
 
