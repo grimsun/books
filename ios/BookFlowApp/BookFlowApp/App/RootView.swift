@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct RootView: View {
-    @State private var environment = AppEnvironment.mock()
+    @State private var environment = AppEnvironment.liveBooks()
 
     var body: some View {
         Group {

@@ -44,4 +44,15 @@ final class AppEnvironment {
             goalsRepository: MockGoalsRepository()
         )
     }
+
+    static func liveBooks() -> AppEnvironment {
+        AppEnvironment(
+            authRepository: MockAuthRepository(),
+            booksRepository: OpenLibraryBooksRepository(),
+            libraryRepository: MockLibraryRepository(),
+            recommendationsRepository: MockRecommendationsRepository(),
+            profileRepository: MockProfileRepository(),
+            goalsRepository: MockGoalsRepository()
+        )
+    }
 }
