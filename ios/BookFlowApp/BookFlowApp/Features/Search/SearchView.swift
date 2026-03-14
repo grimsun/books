@@ -6,6 +6,16 @@ struct SearchView: View {
     @State private var query = ""
     @State private var results: [Book] = []
 
+    private let pageBackground = LinearGradient(
+        colors: [
+            Color(red: 0.99, green: 0.97, blue: 0.94),
+            Color(red: 0.94, green: 0.96, blue: 0.92),
+            Color(red: 0.95, green: 0.95, blue: 0.90)
+        ],
+        startPoint: .top,
+        endPoint: .bottom
+    )
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
@@ -18,29 +28,25 @@ struct SearchView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.top, 56)
                 } else {
-                    VStack(alignment: .leading, spacing: 14) {
-                        Text(query.isEmpty ? "Browse" : "Results")
-                            .font(.system(size: 31, weight: .bold, design: .rounded))
-
-                        LazyVStack(spacing: 14) {
-                            ForEach(results) { book in
-                                NavigationLink {
-                                    BookDetailView(environment: environment, bookID: book.id, recommendationReason: nil)
-                                } label: {
-                                    SearchResultCard(book: book)
-                                }
-                                .buttonStyle(.plain)
+                    LazyVStack(spacing: 14) {
+                        ForEach(results) { book in
+                            NavigationLink {
+                                BookDetailView(environment: environment, bookID: book.id, recommendationReason: nil)
+                            } label: {
+                                SearchResultCard(book: book)
                             }
+                            .buttonStyle(.plain)
                         }
                     }
                 }
             }
             .padding(.horizontal, 14)
-            .padding(.top, 18)
+            .padding(.top, 12)
             .padding(.bottom, 28)
         }
-        .background(Color(.systemGroupedBackground))
+        .background(pageBackground.ignoresSafeArea())
         .navigationTitle("Search")
+        .navigationBarTitleDisplayMode(.inline)
         .searchable(text: $query, prompt: "Title, author, genre")
         .task {
             if results.isEmpty {
@@ -88,11 +94,11 @@ private struct SearchResultCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(.background)
+                .fill(Color.white.opacity(0.7))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .strokeBorder(Color.black.opacity(0.05), lineWidth: 1)
+                .strokeBorder(Color.white.opacity(0.75), lineWidth: 1)
         )
     }
 }

@@ -6,6 +6,16 @@ struct LibraryView: View {
     @State private var selectedShelf: Shelf?
     @State private var items: [LibraryItem] = []
 
+    private let pageBackground = LinearGradient(
+        colors: [
+            Color(red: 0.99, green: 0.97, blue: 0.94),
+            Color(red: 0.94, green: 0.96, blue: 0.92),
+            Color(red: 0.95, green: 0.95, blue: 0.90)
+        ],
+        startPoint: .top,
+        endPoint: .bottom
+    )
+
     init(environment: AppEnvironment, initialShelf: Shelf? = nil) {
         self.environment = environment
         _selectedShelf = State(initialValue: initialShelf)
@@ -18,39 +28,34 @@ struct LibraryView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Library")
-                        .font(.system(size: 34, weight: .bold, design: .rounded))
-
-                    Menu {
-                        Button("All") {
-                            selectedShelf = nil
-                        }
-
-                        ForEach(Shelf.allCases) { shelf in
-                            Button(shelf.title) {
-                                selectedShelf = shelf
-                            }
-                        }
-                    } label: {
-                        HStack(spacing: 8) {
-                            Text(filteredTitle)
-                            Image(systemName: "chevron.down")
-                                .font(.system(size: 12, weight: .semibold))
-                        }
-                        .font(.system(size: 15, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.primary)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                        .background(
-                            Capsule(style: .continuous)
-                                .fill(.background)
-                        )
-                        .overlay(
-                            Capsule(style: .continuous)
-                                .strokeBorder(Color.black.opacity(0.06), lineWidth: 1)
-                        )
+                Menu {
+                    Button("All") {
+                        selectedShelf = nil
                     }
+
+                    ForEach(Shelf.allCases) { shelf in
+                        Button(shelf.title) {
+                            selectedShelf = shelf
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 8) {
+                        Text(filteredTitle)
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 12, weight: .semibold))
+                    }
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.primary)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(
+                        Capsule(style: .continuous)
+                            .fill(Color.white.opacity(0.72))
+                    )
+                    .overlay(
+                        Capsule(style: .continuous)
+                            .strokeBorder(Color.white.opacity(0.8), lineWidth: 1)
+                    )
                 }
 
                 if items.isEmpty {
@@ -75,10 +80,11 @@ struct LibraryView: View {
                 }
             }
             .padding(.horizontal, 14)
-            .padding(.top, 18)
+            .padding(.top, 12)
             .padding(.bottom, 28)
         }
-        .background(Color(.systemGroupedBackground))
+        .background(pageBackground.ignoresSafeArea())
+        .navigationTitle("Library")
         .navigationBarTitleDisplayMode(.inline)
         .task {
             await loadItems()
@@ -106,10 +112,10 @@ private struct LibraryItemCard: View {
                 HStack {
                     Text(item.shelf.title)
                         .font(.system(size: 12, weight: .semibold, design: .rounded))
-                        .foregroundStyle(Color(.systemGreen))
+                        .foregroundStyle(Color(red: 0.22, green: 0.45, blue: 0.29))
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
-                        .background(Color(.systemGreen).opacity(0.12))
+                        .background(Color(red: 0.84, green: 0.91, blue: 0.82).opacity(0.9))
                         .clipShape(Capsule())
 
                     Spacer(minLength: 0)
@@ -137,7 +143,7 @@ private struct LibraryItemCard: View {
                                 .fill(Color.black.opacity(0.08))
                                 .overlay(alignment: .leading) {
                                     Capsule(style: .continuous)
-                                        .fill(Color(.systemGreen))
+                                        .fill(Color(red: 0.22, green: 0.45, blue: 0.29))
                                         .frame(width: geometry.size.width * fill)
                                 }
                         }
@@ -154,11 +160,11 @@ private struct LibraryItemCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(.background)
+                .fill(Color.white.opacity(0.7))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .strokeBorder(Color.black.opacity(0.05), lineWidth: 1)
+                .strokeBorder(Color.white.opacity(0.75), lineWidth: 1)
         )
     }
 }
