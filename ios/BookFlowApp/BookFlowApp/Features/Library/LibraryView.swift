@@ -21,41 +21,22 @@ struct LibraryView: View {
         _selectedShelf = State(initialValue: initialShelf)
     }
 
-    private var filteredTitle: String {
-        selectedShelf?.title ?? "All books"
-    }
-
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                Menu {
-                    Button("All") {
-                        selectedShelf = nil
-                    }
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        shelfChip(title: "All books", isSelected: selectedShelf == nil) {
+                            selectedShelf = nil
+                        }
 
-                    ForEach(Shelf.allCases) { shelf in
-                        Button(shelf.title) {
-                            selectedShelf = shelf
+                        ForEach(Shelf.allCases) { shelf in
+                            shelfChip(title: shelf.title, isSelected: selectedShelf == shelf) {
+                                selectedShelf = shelf
+                            }
                         }
                     }
-                } label: {
-                    HStack(spacing: 8) {
-                        Text(filteredTitle)
-                        Image(systemName: "chevron.down")
-                            .font(.system(size: 12, weight: .semibold))
-                    }
-                    .font(.system(size: 15, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.primary)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(
-                        Capsule(style: .continuous)
-                            .fill(Color.white.opacity(0.72))
-                    )
-                    .overlay(
-                        Capsule(style: .continuous)
-                            .strokeBorder(Color.white.opacity(0.8), lineWidth: 1)
-                    )
+                    .padding(.horizontal, 1)
                 }
 
                 if items.isEmpty {
@@ -97,6 +78,26 @@ struct LibraryView: View {
     @MainActor
     private func loadItems() async {
         items = (try? await environment.libraryRepository.fetchLibrary(shelf: selectedShelf)) ?? []
+    }
+
+    private func shelfChip(title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button(title, action: action)
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(isSelected ? Color.white : Color.primary)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(
+                Capsule()
+                    .fill(
+                        isSelected
+                        ? Color(red: 0.22, green: 0.45, blue: 0.29)
+                        : Color.white.opacity(0.72)
+                    )
+            )
+            .overlay(
+                Capsule()
+                    .stroke(Color.white.opacity(0.65), lineWidth: 1)
+            )
     }
 }
 
