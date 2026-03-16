@@ -121,7 +121,7 @@ private struct SettingsView: View {
     var body: some View {
         List {
             Section("Home") {
-                Toggle("Show weekly rhythm", isOn: $session.showWeeklyRhythm)
+                Toggle("Show reading rhythm", isOn: $session.showWeeklyRhythm)
             }
         }
         .navigationTitle("Settings")
