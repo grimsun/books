@@ -48,6 +48,8 @@ struct SearchView: View {
         .navigationTitle("Search")
         .navigationBarTitleDisplayMode(.inline)
         .searchable(text: $query, prompt: "Title, author, genre")
+        .textInputAutocapitalization(.words)
+        .autocorrectionDisabled()
         .task {
             if results.isEmpty {
                 results = (try? await environment.booksRepository.searchBooks(query: "")) ?? []
