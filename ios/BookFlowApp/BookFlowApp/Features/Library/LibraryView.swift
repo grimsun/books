@@ -41,9 +41,9 @@ struct LibraryView: View {
 
                 if items.isEmpty {
                     ContentUnavailableView(
-                        "No Books Yet",
+                        selectedShelf == nil ? "No Books Yet" : "No \(selectedShelf?.title ?? "Books") Yet",
                         systemImage: "books.vertical",
-                        description: Text("Saved books will show up here.")
+                        description: Text(selectedShelf == nil ? "Saved books will show up here." : "Books on this shelf will show up here.")
                     )
                     .frame(maxWidth: .infinity)
                     .padding(.top, 48)
