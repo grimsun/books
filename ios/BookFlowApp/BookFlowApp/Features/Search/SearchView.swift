@@ -50,6 +50,7 @@ struct SearchView: View {
         .searchable(text: $query, prompt: "Title, author, genre")
         .textInputAutocapitalization(.words)
         .autocorrectionDisabled()
+        .scrollDismissesKeyboard(.immediately)
         .task {
             if results.isEmpty {
                 results = (try? await environment.booksRepository.searchBooks(query: "")) ?? []
