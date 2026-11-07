@@ -9,8 +9,8 @@ let package = Package(
         .target(
             name: "BookflowCore",
             path: "BookFlowApp/BookFlowApp",
-            exclude: ["App/BookflowApp.swift", "App/RootView.swift", "Assets.xcassets", "Core/UI", "Features", "PreviewSupport"],
-            sources: ["App/AppEnvironment.swift", "Core/Models", "Mocks", "Services"]
+            exclude: ["App/BookflowApp.swift", "App/RootView.swift", "Assets.xcassets", "SeedCovers", "Core/UI", "Features", "PreviewSupport"],
+            sources: ["App/AppEnvironment.swift", "Core/Models", "Core/Images", "Mocks", "Services"]
         ),
         .testTarget(name: "BookflowCoreTests", dependencies: ["BookflowCore"], path: "Tests")
     ],

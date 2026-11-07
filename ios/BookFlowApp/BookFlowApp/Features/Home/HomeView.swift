@@ -5,8 +5,6 @@ struct HomeView: View {
     let environment: AppEnvironment
 
     @Environment(\.scenePhase) private var scenePhase
-    @State private var recommendations: [RecommendationItem] = []
-    @State private var currentlyReading: [LibraryItem] = []
     @State private var now = Date()
 
     private let pageBackground = LinearGradient(
@@ -29,9 +27,9 @@ struct HomeView: View {
                         WeeklyRhythmStrip(session: environment.session, now: now)
                     }
 
-                    CurrentlyReadingSection(environment: environment, items: currentlyReading)
+                    CurrentlyReadingSection(environment: environment, items: environment.homeFeed.currentlyReading)
 
-                    RecommendedSection(environment: environment, items: recommendations)
+                    RecommendedSection(environment: environment, items: environment.homeFeed.recommendations)
 
                     PopularSection(environment: environment, tiles: MockSeedData.popularTiles)
 
@@ -43,6 +41,7 @@ struct HomeView: View {
                 .padding(.top, 12)
                 .padding(.bottom, 24)
             }
+            .accessibilityIdentifier("home-scroll")
         }
         .background(pageBackground.ignoresSafeArea())
         .overlay(alignment: .top) {
@@ -50,15 +49,8 @@ struct HomeView: View {
                 .allowsHitTesting(false)
         }
         .navigationBarTitleDisplayMode(.inline)
-        .task {
-            if recommendations.isEmpty {
-                recommendations = (try? await environment.recommendationsRepository.fetchRecommendations()) ?? []
-            }
-        }
         .task(id: environment.libraryRevision) {
-            guard let items = try? await environment.libraryRepository.fetchLibrary(shelf: .reading),
-                  !Task.isCancelled else { return }
-            currentlyReading = items
+            await environment.homeFeed.refresh(environment: environment)
         }
         .onChange(of: scenePhase, initial: true) { _, phase in
             if phase == .active {
@@ -216,7 +208,7 @@ private struct RecommendedSection: View {
                 HStack(alignment: .top, spacing: 6) {
                     ForEach(items) { item in
                         NavigationLink {
-                            BookDetailView(environment: environment, bookID: item.book.id, recommendationReason: item.reason)
+                            BookDetailView(environment: environment, bookID: item.book.id, recommendationReason: item.reason, initialBook: item.book)
                         } label: {
                             RecommendationCard(item: item)
                         }
@@ -233,12 +225,11 @@ private struct MoodSection: View {
     let environment: AppEnvironment
     let shelves: [MoodRecommendationShelf]
 
-    @State private var selectedMoodID: String
+    private var selectedMoodID: String { environment.homeFeed.selectedMoodID }
 
     init(environment: AppEnvironment, shelves: [MoodRecommendationShelf]) {
         self.environment = environment
         self.shelves = shelves
-        _selectedMoodID = State(initialValue: shelves.first?.id ?? "")
     }
 
     private var selectedShelf: MoodRecommendationShelf? {
@@ -272,7 +263,7 @@ private struct MoodSection: View {
                 HStack(spacing: 8) {
                     ForEach(shelves) { shelf in
                         Button(shelf.title) {
-                            selectedMoodID = shelf.id
+                            environment.homeFeed.selectedMoodID = shelf.id
                         }
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(selectedMoodID == shelf.id ? Color.white : Color.primary)
@@ -290,6 +281,8 @@ private struct MoodSection: View {
                             Capsule()
                                 .stroke(Color.white.opacity(0.65), lineWidth: 1)
                         )
+                        .accessibilityIdentifier("home-mood-\(shelf.id)")
+                        .accessibilityValue(selectedMoodID == shelf.id ? "Selected" : "Not selected")
                     }
                 }
                 .padding(.horizontal, 1)
@@ -299,11 +292,12 @@ private struct MoodSection: View {
                 HStack(alignment: .top, spacing: 6) {
                     ForEach(selectedBooks) { book in
                         NavigationLink {
-                            BookDetailView(environment: environment, bookID: book.id, recommendationReason: selectedShelf?.title)
+                            BookDetailView(environment: environment, bookID: book.id, recommendationReason: selectedShelf?.title, initialBook: book)
                         } label: {
                             MoodBookCard(book: book, moodTitle: selectedShelf?.title ?? "For you")
                         }
                         .buttonStyle(.plain)
+                        .accessibilityIdentifier("home-mood-book-\(book.id)")
                     }
                 }
                 .padding(.horizontal, 1)
@@ -345,7 +339,12 @@ private struct ListsSection: View {
 private struct CurrentlyReadingSection: View {
     let environment: AppEnvironment
     let items: [LibraryItem]
-    @State private var selectedIndex = 0
+    private var selectedBookID: String? { environment.homeFeed.selectedReadingBookID }
+    @State private var visibleBookID: String?
+
+    private var selectedIndex: Int {
+        items.firstIndex(where: { $0.id == selectedBookID }) ?? 0
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -374,30 +373,45 @@ private struct CurrentlyReadingSection: View {
             }
 
             if items.count > 1 {
-                TabView(selection: $selectedIndex) {
-                    ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-                        NavigationLink {
-                            BookDetailView(environment: environment, bookID: item.book.id, recommendationReason: nil)
-                        } label: {
-                            FeaturedReadingCard(item: item)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHStack(spacing: 0) {
+                        ForEach(items) { item in
+                            NavigationLink {
+                                BookDetailView(environment: environment, bookID: item.book.id, recommendationReason: nil, initialBook: item.book)
+                            } label: {
+                                FeaturedReadingCard(item: item)
+                                    .containerRelativeFrame(.horizontal)
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
-                        .tag(index)
                     }
+                    .scrollTargetLayout()
                 }
-                .tabViewStyle(.page(indexDisplayMode: .never))
+                .scrollTargetBehavior(.paging)
+                .scrollPosition(id: $visibleBookID)
+                .onChange(of: visibleBookID) { _, id in
+                    if let id { environment.homeFeed.selectedReadingBookID = id }
+                }
+                .onAppear {
+                    if visibleBookID == nil { visibleBookID = selectedBookID ?? items.first?.id }
+                }
+                .accessibilityIdentifier("currently-reading-rail")
+                .accessibilityValue(selectedBookID ?? items.first?.id ?? "")
                 .frame(height: 236)
             } else if let item = items.first {
                 NavigationLink {
-                    BookDetailView(environment: environment, bookID: item.book.id, recommendationReason: nil)
+                    BookDetailView(environment: environment, bookID: item.book.id, recommendationReason: nil, initialBook: item.book)
                 } label: {
                     FeaturedReadingCard(item: item)
                 }
                 .buttonStyle(.plain)
             }
         }
-        .onChange(of: items) { _, newItems in
-            selectedIndex = min(max(selectedIndex, 0), max(newItems.count - 1, 0))
+        .onChange(of: items, initial: true) { _, newItems in
+            if !newItems.contains(where: { $0.id == selectedBookID }) {
+                environment.homeFeed.selectedReadingBookID = newItems.first?.id
+                visibleBookID = newItems.first?.id
+            }
         }
     }
 }
@@ -426,7 +440,7 @@ private struct PopularSection: View {
                     NavigationLink {
                         BookDetailView(environment: environment, bookID: tile.bookID, recommendationReason: nil)
                     } label: {
-                        PopularThumbnail(assetName: tile.assetName)
+                        PopularThumbnail(bookID: tile.bookID)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(MockSeedData.books.first(where: { $0.id == tile.bookID })?.title ?? "Book")
@@ -487,6 +501,7 @@ private struct HomeSectionTitle: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
                 .font(.system(size: fontSize, weight: .bold, design: .rounded))
+                .accessibilityIdentifier(title == "Lists" ? "home-lists-anchor" : "home-section-\(title)")
             if let subtitle {
                 Text(subtitle)
                     .font(.footnote)
@@ -572,16 +587,12 @@ private struct CuratedListMosaic: View {
 }
 
 struct PopularThumbnail: View {
-    let assetName: String
+    let bookID: String
 
     var body: some View {
-        Color.white.opacity(0.55)
+        CoverImageContent(url: MockSeedData.booksByID[bookID]?.coverURL, pixels: 640)
+            .equatable()
             .aspectRatio(1 / 1.46, contentMode: .fit)
-            .overlay {
-                Image(assetName)
-                    .resizable()
-                    .scaledToFill()
-            }
             .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 }
@@ -621,8 +632,8 @@ private struct FeaturedReadingCard: View {
             Spacer(minLength: 0)
 
             RemoteCoverView(url: item.book.coverURL, width: 116, height: 168)
+                .coverShadow(opacity: 0.12, radius: 16, y: 10)
                 .rotationEffect(.degrees(2))
-                .shadow(color: Color.black.opacity(0.12), radius: 16, x: 0, y: 10)
         }
         .padding(18)
         .background(

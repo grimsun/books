@@ -8,13 +8,14 @@ final class BookSearchModel {
     private(set) var isLoading = false
     private(set) var errorMessage: String?
     private var requestID = 0
+    private var completedQuery: String?
 
     func search(query: String, using repository: any BooksRepository, debounce: Duration = .milliseconds(400)) async {
+        guard completedQuery != query || isLoading || errorMessage != nil else { return }
         requestID += 1
         let currentID = requestID
         isLoading = true
         errorMessage = nil
-        results = []
         defer { if currentID == requestID { isLoading = false } }
         do {
             if !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -24,7 +25,8 @@ final class BookSearchModel {
             let books = try await repository.searchBooks(query: query)
             try Task.checkCancellation()
             guard currentID == requestID else { return }
-            results = books
+            if results != books { results = books }
+            completedQuery = query
         } catch {
             guard currentID == requestID, !Task.isCancelled else { return }
             errorMessage = error.localizedDescription

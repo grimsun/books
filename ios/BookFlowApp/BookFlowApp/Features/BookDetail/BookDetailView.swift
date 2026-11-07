@@ -17,6 +17,13 @@ struct BookDetailView: View {
     @State private var statusMessage: String?
     @State private var retryCount = 0
 
+    init(environment: AppEnvironment, bookID: String, recommendationReason: String?, initialBook: Book? = nil) {
+        self.environment = environment
+        self.bookID = bookID
+        self.recommendationReason = recommendationReason
+        _book = State(initialValue: initialBook ?? MockSeedData.booksByID[bookID])
+    }
+
     var body: some View {
         ScrollView {
             if let book {

@@ -106,6 +106,8 @@ enum MockSeedData {
         )
     ]
 
+    static let booksByID = Dictionary(uniqueKeysWithValues: books.map { ($0.id, $0) })
+
     static let libraryItems: [LibraryItem] = [
         LibraryItem(
             book: books[1],

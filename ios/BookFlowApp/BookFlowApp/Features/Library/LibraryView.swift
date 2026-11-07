@@ -7,6 +7,7 @@ struct LibraryView: View {
     @State private var items: [LibraryItem] = []
     @State private var isLoading = true
     @State private var errorMessage: String?
+    @State private var loadedRevision: Int?
 
     private let pageBackground = LinearGradient(
         colors: [
@@ -23,24 +24,32 @@ struct LibraryView: View {
         _selectedShelf = State(initialValue: initialShelf)
     }
 
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        shelfChip(title: "All books", isSelected: selectedShelf == nil) {
-                            selectedShelf = nil
-                        }
+    private var visibleItems: [LibraryItem] {
+        guard let selectedShelf else { return items }
+        return items.filter { $0.shelf == selectedShelf }
+    }
 
-                        ForEach(Shelf.allCases) { shelf in
-                            shelfChip(title: shelf.title, isSelected: selectedShelf == shelf) {
-                                selectedShelf = shelf
-                            }
+    var body: some View {
+        List {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    shelfChip(title: "All books", isSelected: selectedShelf == nil) {
+                        selectedShelf = nil
+                    }
+
+                    ForEach(Shelf.allCases) { shelf in
+                        shelfChip(title: shelf.title, isSelected: selectedShelf == shelf) {
+                            selectedShelf = shelf
                         }
                     }
-                    .padding(.horizontal, 1)
                 }
+                .padding(.horizontal, 1)
+            }
+            .listRowInsets(EdgeInsets(top: 0, leading: 14, bottom: 18, trailing: 14))
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
 
+            Group {
                 if isLoading {
                     ProgressView("Loading library...")
                         .frame(maxWidth: .infinity)
@@ -53,7 +62,7 @@ struct LibraryView: View {
                     } actions: {
                         Button("Try Again") { Task { await loadItems() } }
                     }
-                } else if items.isEmpty {
+                } else if visibleItems.isEmpty {
                     ContentUnavailableView(
                         selectedShelf == nil ? "No Books Yet" : "No \(selectedShelf?.title ?? "Books") Yet",
                         systemImage: "books.vertical",
@@ -62,41 +71,51 @@ struct LibraryView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.top, 48)
                 } else {
-                    LazyVStack(spacing: 14) {
-                        ForEach(items) { item in
-                            NavigationLink {
-                                BookDetailView(environment: environment, bookID: item.book.id, recommendationReason: nil)
-                            } label: {
-                                LibraryItemCard(item: item)
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityIdentifier("library-book-\(item.book.id)")
+                    ForEach(visibleItems) { item in
+                        NavigationLink {
+                            BookDetailView(environment: environment, bookID: item.book.id, recommendationReason: nil, initialBook: item.book)
+                        } label: {
+                            LibraryItemCard(item: item)
                         }
+                        .buttonStyle(.plain)
+                        .navigationLinkIndicatorVisibility(.hidden)
+                        .accessibilityIdentifier("library-book-\(item.book.id)")
                     }
                 }
             }
-            .padding(.horizontal, 14)
-            .padding(.top, 12)
-            .padding(.bottom, 28)
+            .listRowInsets(EdgeInsets(top: 0, leading: 14, bottom: 14, trailing: 14))
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
         }
+        .listStyle(.plain)
+        .listRowSpacing(0)
+        .environment(\.defaultMinListRowHeight, 0)
+        .scrollContentBackground(.hidden)
+        .contentMargins(.horizontal, 0, for: .scrollContent)
+        .contentMargins(.top, 12, for: .scrollContent)
+        .contentMargins(.bottom, 14, for: .scrollContent)
         .background(pageBackground.ignoresSafeArea())
+        .accessibilityIdentifier("library-scroll")
+        .accessibilityValue(selectedShelf?.rawValue ?? "all")
         .navigationTitle("Library")
         .navigationBarTitleDisplayMode(.inline)
-        .task(id: "\(selectedShelf?.rawValue ?? "all")-\(environment.libraryRevision)") {
+        .task(id: environment.libraryRevision) {
+            guard loadedRevision != environment.libraryRevision else { return }
             await loadItems()
         }
     }
 
     @MainActor
     private func loadItems() async {
-        let shelf = selectedShelf
-        isLoading = true
+        let revision = environment.libraryRevision
+        isLoading = items.isEmpty
         errorMessage = nil
         defer { if !Task.isCancelled { isLoading = false } }
         do {
-            let loaded = try await environment.libraryRepository.fetchLibrary(shelf: shelf)
+            let loaded = try await environment.libraryRepository.fetchLibrary(shelf: nil)
             try Task.checkCancellation()
-            items = loaded
+            if items != loaded { items = loaded }
+            loadedRevision = revision
         } catch {
             if !Task.isCancelled { errorMessage = error.localizedDescription }
         }
@@ -104,6 +123,9 @@ struct LibraryView: View {
 
     private func shelfChip(title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
         Button(title, action: action)
+            .accessibilityIdentifier("library-shelf-\(title == "All books" ? "all" : Shelf.allCases.first(where: { $0.title == title })?.rawValue ?? title)")
+            .accessibilityValue(isSelected ? "Selected" : "Not selected")
+            .buttonStyle(.plain)
             .font(.subheadline.weight(.semibold))
             .foregroundStyle(isSelected ? Color.white : Color.primary)
             .padding(.horizontal, 16)
@@ -127,59 +149,31 @@ private struct LibraryItemCard: View {
     let item: LibraryItem
 
     var body: some View {
-        HStack(alignment: .top, spacing: 14) {
-            RemoteCoverView(url: item.book.coverURL, width: 98, height: 144)
-                .shadow(color: .black.opacity(0.08), radius: 10, y: 4)
-
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text(item.shelf.title)
-                        .font(.system(size: 12, weight: .semibold, design: .rounded))
-                        .foregroundStyle(Color(red: 0.22, green: 0.45, blue: 0.29))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(Color(red: 0.84, green: 0.91, blue: 0.82).opacity(0.9))
-                        .clipShape(Capsule())
-
-                    Spacer(minLength: 0)
-                }
-
-                Text(item.book.title)
-                    .font(.system(size: 20, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.primary)
-                    .multilineTextAlignment(.leading)
-
-                Text(item.book.authors.map(\.name).joined(separator: ", "))
-                    .font(.system(size: 15, weight: .medium, design: .rounded))
-                    .foregroundStyle(.secondary)
-
-                if let progress = item.progress {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(progress.label)
-                            .font(.system(size: 13, weight: .semibold, design: .rounded))
-                            .foregroundStyle(.primary)
-
-                        if let fraction = progress.fraction(pageCount: item.book.pageCount) {
-                            ProgressView(value: fraction)
-                                .tint(Color(red: 0.22, green: 0.45, blue: 0.29))
-                        }
-                    }
-                }
+        BookSummaryCard(book: item.book, coverWidth: 98, coverHeight: 144, textSpacing: 8) {
+            HStack {
+                Text(item.shelf.title)
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Color(red: 0.22, green: 0.45, blue: 0.29))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color(red: 0.84, green: 0.91, blue: 0.82).opacity(0.9))
+                    .clipShape(Capsule())
 
                 Spacer(minLength: 0)
             }
+        } footer: {
+            if let progress = item.progress {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(progress.label)
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.primary)
 
-            Spacer(minLength: 0)
+                    if let fraction = progress.fraction(pageCount: item.book.pageCount) {
+                        ProgressView(value: fraction)
+                            .tint(Color(red: 0.22, green: 0.45, blue: 0.29))
+                    }
+                }
+            }
         }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(Color.white.opacity(0.7))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.75), lineWidth: 1)
-        )
     }
 }

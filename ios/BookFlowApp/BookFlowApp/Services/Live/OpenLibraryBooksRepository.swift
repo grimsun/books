@@ -19,8 +19,8 @@ enum OpenLibraryRepositoryError: LocalizedError {
 
 @MainActor
 final class OpenLibraryBooksRepository: BooksRepository {
-    private let session: URLSession
-    private let decoder = JSONDecoder()
+    private let session: URLSession?
+    private let decodingWorker = OpenLibraryDecodingWorker()
     private let fallback = MockBooksRepository()
     private var cachedBooks: [String: Book] = [:]
     private var detailedBookIDs: Set<String> = []
@@ -28,7 +28,7 @@ final class OpenLibraryBooksRepository: BooksRepository {
     private var nextRequestDate = Date.distantPast
     private let requestInterval: TimeInterval
 
-    init(session: URLSession = .shared, requestInterval: TimeInterval = 1) {
+    init(session: URLSession? = nil, requestInterval: TimeInterval = 1) {
         self.session = session
         self.requestInterval = requestInterval
     }
@@ -128,7 +128,7 @@ final class OpenLibraryBooksRepository: BooksRepository {
         return authors
     }
 
-    private func request<T: Decodable>(urlString: String) async throws -> T {
+    private func request<T: Decodable & Sendable>(urlString: String) async throws -> T {
         guard let url = URL(string: urlString) else {
             throw OpenLibraryRepositoryError.invalidURL
         }
@@ -143,7 +143,10 @@ final class OpenLibraryBooksRepository: BooksRepository {
         request.setValue("Bookflow iOS Prototype", forHTTPHeaderField: "User-Agent")
         request.timeoutInterval = 20
 
-        let (data, response) = try await session.data(for: request)
+        #if DEBUG
+        NetworkDiagnostics.shared.recordRequest()
+        #endif
+        let (data, response) = try await decodingWorker.data(for: request, session: session)
         guard let httpResponse = response as? HTTPURLResponse else {
             throw OpenLibraryRepositoryError.invalidResponse
         }
@@ -151,7 +154,9 @@ final class OpenLibraryBooksRepository: BooksRepository {
             throw httpResponse.statusCode == 404 ? OpenLibraryRepositoryError.notFound : .httpStatus(httpResponse.statusCode)
         }
 
-        return try decoder.decode(T.self, from: data)
+        let decoded = try await decodingWorker.decode(T.self, from: data)
+        try Task.checkCancellation()
+        return decoded
     }
 
     private static func mapSearchDoc(_ doc: OpenLibrarySearchDocument) -> Book {
@@ -195,11 +200,22 @@ final class OpenLibraryBooksRepository: BooksRepository {
     }
 }
 
-private struct OpenLibrarySearchResponse: Decodable {
+private actor OpenLibraryDecodingWorker {
+    func data(for request: URLRequest, session: URLSession?) async throws -> (Data, URLResponse) {
+        try await (session ?? .shared).data(for: request)
+    }
+
+    func decode<T: Decodable & Sendable>(_ type: T.Type, from data: Data) throws -> T {
+        try Task.checkCancellation()
+        return try JSONDecoder().decode(type, from: data)
+    }
+}
+
+nonisolated private struct OpenLibrarySearchResponse: Decodable, Sendable {
     let docs: [OpenLibrarySearchDocument]
 }
 
-private struct OpenLibrarySearchDocument: Decodable {
+nonisolated private struct OpenLibrarySearchDocument: Decodable, Sendable {
     let key: String
     let title: String
     let authorName: [String]?
@@ -223,7 +239,7 @@ private struct OpenLibrarySearchDocument: Decodable {
     }
 }
 
-private struct OpenLibraryWorkResponse: Decodable {
+nonisolated private struct OpenLibraryWorkResponse: Decodable, Sendable {
     let title: String
     let subtitle: String?
     let description: OpenLibraryDescription?
@@ -243,7 +259,7 @@ private struct OpenLibraryWorkResponse: Decodable {
     }
 }
 
-private struct OpenLibraryDescription: Decodable {
+nonisolated private struct OpenLibraryDescription: Decodable, Sendable {
     let value: String?
 
     var textValue: String? { value }
@@ -260,15 +276,15 @@ private struct OpenLibraryDescription: Decodable {
     }
 }
 
-private struct OpenLibraryAuthorReference: Decodable {
+nonisolated private struct OpenLibraryAuthorReference: Decodable, Sendable {
     let author: OpenLibraryKeyReference
 }
 
-private struct OpenLibraryKeyReference: Decodable {
+nonisolated private struct OpenLibraryKeyReference: Decodable, Sendable {
     let key: String
 }
 
-private struct OpenLibraryAuthorResponse: Decodable {
+nonisolated private struct OpenLibraryAuthorResponse: Decodable, Sendable {
     let name: String
 }
 

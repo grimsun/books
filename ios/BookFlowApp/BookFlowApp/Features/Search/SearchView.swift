@@ -18,9 +18,9 @@ struct SearchView: View {
     )
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                if search.isLoading {
+        List {
+            Group {
+                if search.isLoading && search.results.isEmpty {
                     ProgressView("Searching books...")
                         .frame(maxWidth: .infinity)
                         .padding(.top, 56)
@@ -42,24 +42,37 @@ struct SearchView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.top, 56)
                 } else {
-                    LazyVStack(spacing: 14) {
-                        ForEach(search.results) { book in
-                            NavigationLink {
-                                BookDetailView(environment: environment, bookID: book.id, recommendationReason: nil)
-                            } label: {
-                                SearchResultCard(book: book)
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityIdentifier("search-book-\(book.id)")
+                    ForEach(search.results) { book in
+                        NavigationLink {
+                            BookDetailView(environment: environment, bookID: book.id, recommendationReason: nil, initialBook: book)
+                        } label: {
+                            SearchResultCard(book: book)
                         }
+                        .buttonStyle(.plain)
+                        .navigationLinkIndicatorVisibility(.hidden)
+                        .accessibilityIdentifier("search-book-\(book.id)")
                     }
                 }
             }
-            .padding(.horizontal, 14)
-            .padding(.top, 12)
-            .padding(.bottom, 28)
+            .listRowInsets(EdgeInsets(top: 0, leading: 14, bottom: 14, trailing: 14))
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
         }
+        .listStyle(.plain)
+        .listRowSpacing(0)
+        .environment(\.defaultMinListRowHeight, 0)
+        .scrollContentBackground(.hidden)
+        .contentMargins(.horizontal, 0, for: .scrollContent)
+        .contentMargins(.top, 12, for: .scrollContent)
+        .contentMargins(.bottom, 14, for: .scrollContent)
         .background(pageBackground.ignoresSafeArea())
+        .overlay(alignment: .topTrailing) {
+            if search.isLoading && !search.results.isEmpty {
+                ProgressView()
+                    .padding(16)
+                    .allowsHitTesting(false)
+            }
+        }
         .navigationTitle("Search")
         .navigationBarTitleDisplayMode(.inline)
         .searchable(text: $query, prompt: "Title, author, genre")
@@ -81,40 +94,15 @@ private struct SearchResultCard: View {
     let book: Book
 
     var body: some View {
-        HStack(alignment: .top, spacing: 14) {
-            RemoteCoverView(url: book.coverURL, width: 94, height: 136)
-                .shadow(color: .black.opacity(0.08), radius: 10, y: 4)
-
-            VStack(alignment: .leading, spacing: 7) {
-                Text(book.title)
-                    .font(.system(size: 20, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.primary)
-                    .multilineTextAlignment(.leading)
-
-                Text(book.authors.map(\.name).joined(separator: ", "))
-                    .font(.system(size: 15, weight: .medium, design: .rounded))
-                    .foregroundStyle(.secondary)
-
-                if !book.genres.isEmpty {
-                    Text(book.genres.prefix(2).map(\.name).joined(separator: " • "))
-                        .font(.system(size: 13, weight: .medium, design: .rounded))
-                        .foregroundStyle(.tertiary)
-                }
-
-                Spacer(minLength: 0)
+        BookSummaryCard(book: book) {
+            EmptyView()
+        } footer: {
+            if !book.genres.isEmpty {
+                Text(book.genres.prefix(2).map(\.name).joined(separator: " • "))
+                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
             }
-
-            Spacer(minLength: 0)
         }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(Color.white.opacity(0.7))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.75), lineWidth: 1)
-        )
     }
 }

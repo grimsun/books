@@ -25,7 +25,7 @@ struct ListDetailView: View {
 
             ForEach(books) { book in
                 NavigationLink {
-                    BookDetailView(environment: environment, bookID: book.id, recommendationReason: nil)
+                    BookDetailView(environment: environment, bookID: book.id, recommendationReason: nil, initialBook: book)
                 } label: {
                     ListBookRow(book: book)
                 }

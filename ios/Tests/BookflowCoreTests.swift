@@ -64,6 +64,55 @@ struct BookflowCoreTests {
         #expect(ReadingProgress(progressUnit: .percent, progressValue: 75).fraction(pageCount: 300) == 0.75)
     }
 
+    @Test func concurrentLibraryEditsPreserveBothUpdatesOnDisk() async throws {
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".json")
+        defer { try? FileManager.default.removeItem(at: file) }
+        let library = LocalLibraryRepository(booksRepository: MockBooksRepository(), storageURL: file,
+                                             seedItems: MockSeedData.libraryItems)
+        let first = MockSeedData.libraryItems[0].book.id
+        let second = MockSeedData.libraryItems[1].book.id
+        async let progress: Void = library.updateProgress(bookID: first, progress: ReadingProgress(progressUnit: .page, progressValue: 20))
+        async let shelf: Void = library.upsertLibraryItem(bookID: second, shelf: .paused, owned: true)
+        _ = try await (progress, shelf)
+        let restored = LocalLibraryRepository(booksRepository: MockBooksRepository(), storageURL: file)
+        let saved = try await restored.fetchLibrary(shelf: nil)
+        #expect(saved.first(where: { $0.id == first })?.progress?.progressValue == 20)
+        #expect(saved.first(where: { $0.id == second })?.shelf == .paused)
+    }
+
+    @Test func searchKeepsExistingResultsDuringDebounceAndCancellation() async {
+        let repository = TestBooksRepository()
+        let model = BookSearchModel()
+        await model.search(query: "first", using: repository, debounce: .zero)
+        let pending = Task { await model.search(query: "second", using: repository, debounce: .seconds(1)) }
+        await Task.yield()
+        #expect(model.results.first?.title == "first")
+        pending.cancel()
+        await pending.value
+        #expect(model.results.first?.title == "first")
+        #expect(model.errorMessage == nil)
+    }
+
+    @Test func homeFeedRetainsSelectionsAndDoesNotReloadAnUnchangedLibrary() async {
+        let library = CountingLibraryRepository()
+        let environment = AppEnvironment(authRepository: MockAuthRepository(), booksRepository: MockBooksRepository(),
+                                         libraryRepository: library, recommendationsRepository: MockRecommendationsRepository(),
+                                         profileRepository: MockProfileRepository(), goalsRepository: MockGoalsRepository())
+        let feed = environment.homeFeed
+        #expect(!feed.currentlyReading.isEmpty)
+        #expect(!feed.recommendations.isEmpty)
+        feed.selectedMoodID = "mood_short"
+        feed.selectedReadingBookID = "book_kafka"
+        await feed.refresh(environment: environment)
+        await feed.refresh(environment: environment)
+        #expect(library.fetchCount == 1)
+        environment.libraryRevision += 1
+        await feed.refresh(environment: environment)
+        #expect(library.fetchCount == 2)
+        #expect(feed.selectedMoodID == "mood_short")
+        #expect(feed.selectedReadingBookID == "book_kafka")
+    }
+
     @Test func sessionSettingsAndReadingDatesPersistAndUseActualWeek() throws {
         let defaults = try isolatedDefaults()
         defer { defaults.removePersistentDomain(forName: defaultsSuite) }
@@ -205,6 +254,18 @@ struct BookflowCoreTests {
         config.protocolClasses = [StubURLProtocol.self]
         return OpenLibraryBooksRepository(session: URLSession(configuration: config), requestInterval: 0)
     }
+}
+
+@MainActor
+private final class CountingLibraryRepository: LibraryRepository {
+    var fetchCount = 0
+    func fetchLibrary(shelf: Shelf?) async throws -> [LibraryItem] {
+        fetchCount += 1
+        return MockSeedData.libraryItems.filter { shelf == nil || $0.shelf == shelf }
+    }
+    func upsertLibraryItem(bookID: String, shelf: Shelf, owned: Bool) async throws {}
+    func updateProgress(bookID: String, progress: ReadingProgress) async throws {}
+    func removeLibraryItem(bookID: String) async throws {}
 }
 
 @MainActor

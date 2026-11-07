@@ -1,11 +1,11 @@
 import Foundation
 
-struct User: Identifiable, Codable, Equatable {
+nonisolated struct User: Identifiable, Codable, Equatable, Sendable {
     let id: String
     var displayName: String
 }
 
-struct UserPreferenceProfile: Codable, Equatable {
+nonisolated struct UserPreferenceProfile: Codable, Equatable, Sendable {
     var favoriteGenres: [Genre]
     var favoriteAuthors: [Author]
     var dislikedGenres: [Genre]
@@ -19,17 +19,17 @@ struct UserPreferenceProfile: Codable, Equatable {
     )
 }
 
-struct Author: Identifiable, Codable, Hashable {
+nonisolated struct Author: Identifiable, Codable, Hashable, Sendable {
     let id: String
     let name: String
 }
 
-struct Genre: Identifiable, Codable, Hashable {
+nonisolated struct Genre: Identifiable, Codable, Hashable, Sendable {
     let id: String
     let name: String
 }
 
-struct Book: Identifiable, Codable, Hashable {
+nonisolated struct Book: Identifiable, Codable, Hashable, Sendable {
     let id: String
     let title: String
     let subtitle: String?
@@ -43,7 +43,7 @@ struct Book: Identifiable, Codable, Hashable {
     let isbn13: String?
 }
 
-enum Shelf: String, Codable, CaseIterable, Identifiable {
+nonisolated enum Shelf: String, Codable, CaseIterable, Identifiable, Sendable {
     case wantToRead = "want_to_read"
     case reading
     case finished
@@ -63,12 +63,12 @@ enum Shelf: String, Codable, CaseIterable, Identifiable {
     }
 }
 
-enum ProgressUnit: String, Codable {
+nonisolated enum ProgressUnit: String, Codable, Sendable {
     case page
     case percent
 }
 
-enum ReadingPace: String, Codable, CaseIterable, Identifiable {
+nonisolated enum ReadingPace: String, Codable, CaseIterable, Identifiable, Sendable {
     case slow
     case moderate
     case fast
@@ -78,7 +78,7 @@ enum ReadingPace: String, Codable, CaseIterable, Identifiable {
     var title: String { rawValue.capitalized }
 }
 
-struct ReadingProgress: Codable, Hashable {
+nonisolated struct ReadingProgress: Codable, Hashable, Sendable {
     var progressUnit: ProgressUnit
     var progressValue: Int
 
@@ -99,7 +99,7 @@ struct ReadingProgress: Codable, Hashable {
     }
 }
 
-struct LibraryItem: Identifiable, Codable, Equatable {
+nonisolated struct LibraryItem: Identifiable, Codable, Equatable, Sendable {
     var id: String { book.id }
     let book: Book
     var shelf: Shelf
@@ -109,13 +109,13 @@ struct LibraryItem: Identifiable, Codable, Equatable {
     var progress: ReadingProgress?
 }
 
-struct ReadingGoal: Codable, Equatable {
+nonisolated struct ReadingGoal: Codable, Equatable, Sendable {
     let year: Int
     var booksTarget: Int
     var booksCompleted: Int
 }
 
-struct RecommendationItem: Identifiable, Codable, Equatable {
+nonisolated struct RecommendationItem: Identifiable, Codable, Equatable, Sendable {
     var id: String { book.id }
     let book: Book
     let reason: String

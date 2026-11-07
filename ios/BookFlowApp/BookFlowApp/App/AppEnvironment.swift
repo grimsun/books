@@ -66,6 +66,7 @@ final class AppEnvironment {
     let goalsRepository: any GoalsRepository
     let session: SessionStore
     var libraryRevision = 0
+    let homeFeed = HomeFeedStore()
 
     init(
         authRepository: any AuthRepository,
@@ -121,10 +122,23 @@ final class AppEnvironment {
                 try? FileManager.default.removeItem(at: storageURL)
             }
             let books = MockBooksRepository()
+            let seedItems: [LibraryItem]
+            if ProcessInfo.processInfo.environment["BOOKFLOW_LARGE_LIBRARY"] == "1" {
+                seedItems = (0..<1_000).map { index in
+                    let sample = MockSeedData.books[index % MockSeedData.books.count]
+                    let book = Book(id: "stress-\(index)", title: sample.title, subtitle: sample.subtitle,
+                                    authors: sample.authors, genres: sample.genres, description: sample.description,
+                                    coverURL: sample.coverURL, pageCount: sample.pageCount,
+                                    publicationYear: sample.publicationYear, isbn10: sample.isbn10, isbn13: sample.isbn13)
+                    return LibraryItem(book: book, shelf: index.isMultiple(of: 2) ? .reading : .wantToRead, owned: false)
+                }
+            } else {
+                seedItems = MockSeedData.libraryItems
+            }
             return AppEnvironment(
                 authRepository: MockAuthRepository(),
                 booksRepository: books,
-                libraryRepository: LocalLibraryRepository(booksRepository: books, storageURL: storageURL, seedItems: MockSeedData.libraryItems),
+                libraryRepository: LocalLibraryRepository(booksRepository: books, storageURL: storageURL, seedItems: seedItems),
                 recommendationsRepository: MockRecommendationsRepository(),
                 profileRepository: LocalProfileRepository(defaults: defaults),
                 goalsRepository: MockGoalsRepository(),

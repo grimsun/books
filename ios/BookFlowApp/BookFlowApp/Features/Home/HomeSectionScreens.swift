@@ -21,7 +21,7 @@ struct RecommendationListView: View {
 
             ForEach(items) { item in
                 NavigationLink {
-                    BookDetailView(environment: environment, bookID: item.book.id, recommendationReason: item.reason)
+                    BookDetailView(environment: environment, bookID: item.book.id, recommendationReason: item.reason, initialBook: item.book)
                 } label: {
                     ListBookRow(book: item.book)
                 }
@@ -51,7 +51,7 @@ struct PopularGridView: View {
                     NavigationLink {
                         BookDetailView(environment: environment, bookID: tile.bookID, recommendationReason: nil)
                     } label: {
-                        PopularThumbnail(assetName: tile.assetName)
+                        PopularThumbnail(bookID: tile.bookID)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(MockSeedData.books.first(where: { $0.id == tile.bookID })?.title ?? "Book")
