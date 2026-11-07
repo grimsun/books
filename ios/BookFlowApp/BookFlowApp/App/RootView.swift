@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct RootView: View {
-    @State private var environment = AppEnvironment.liveBooks()
+    @State private var environment = AppEnvironment.app()
 
     var body: some View {
         Group {
@@ -13,6 +13,8 @@ struct RootView: View {
                 }
             }
         }
+        .preferredColorScheme(.light)
+        .tint(Color(red: 0.22, green: 0.45, blue: 0.29))
     }
 }
 

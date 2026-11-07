@@ -4,9 +4,10 @@ import UIKit
 struct HomeView: View {
     let environment: AppEnvironment
 
+    @Environment(\.scenePhase) private var scenePhase
     @State private var recommendations: [RecommendationItem] = []
     @State private var currentlyReading: [LibraryItem] = []
-    @State private var weeklyRhythm = MockSeedData.weeklyReadingStatus
+    @State private var now = Date()
 
     private let pageBackground = LinearGradient(
         colors: [
@@ -25,7 +26,7 @@ struct HomeView: View {
                     header
 
                     if environment.session.showWeeklyRhythm {
-                        WeeklyRhythmStrip(days: $weeklyRhythm)
+                        WeeklyRhythmStrip(session: environment.session, now: now)
                     }
 
                     CurrentlyReadingSection(environment: environment, items: currentlyReading)
@@ -53,8 +54,15 @@ struct HomeView: View {
             if recommendations.isEmpty {
                 recommendations = (try? await environment.recommendationsRepository.fetchRecommendations()) ?? []
             }
-            if currentlyReading.isEmpty {
-                currentlyReading = (try? await environment.libraryRepository.fetchLibrary(shelf: .reading)) ?? []
+        }
+        .task(id: environment.libraryRevision) {
+            guard let items = try? await environment.libraryRepository.fetchLibrary(shelf: .reading),
+                  !Task.isCancelled else { return }
+            currentlyReading = items
+        }
+        .onChange(of: scenePhase, initial: true) { _, phase in
+            if phase == .active {
+                now = Date()
             }
         }
     }
@@ -65,7 +73,7 @@ struct HomeView: View {
                 Text("Bookflow")
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(Color(red: 0.22, green: 0.45, blue: 0.29))
-                Text("Sunday reading")
+                Text("\(now.formatted(.dateTime.weekday(.wide))) reading")
                     .font(.system(size: 22, weight: .semibold, design: .rounded))
             }
 
@@ -111,11 +119,14 @@ private struct TopBezelFade: View {
 }
 
 private struct WeeklyRhythmStrip: View {
-    @Binding var days: [ReadingDayStatus]
+    let session: SessionStore
+    let now: Date
 
     var body: some View {
         HStack(spacing: 10) {
-            ForEach(Array(days.enumerated()), id: \.element.id) { index, day in
+            ForEach(session.readingDays(now: now)) { day in
+                let isFuture = Calendar.current.startOfDay(for: day.date) > Calendar.current.startOfDay(for: now)
+
                 VStack(spacing: 8) {
                     ZStack {
                         Circle()
@@ -144,9 +155,21 @@ private struct WeeklyRhythmStrip: View {
                 .frame(maxWidth: .infinity)
                 .contentShape(Rectangle())
                 .onLongPressGesture(minimumDuration: 0.4) {
-                    days[index].isCompleted.toggle()
+                    guard !isFuture else { return }
+                    session.toggleReading(on: day.date)
                     let generator = UIImpactFeedbackGenerator(style: .light)
                     generator.impactOccurred()
+                }
+                .disabled(isFuture)
+                .opacity(isFuture ? 0.5 : 1)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(day.date.formatted(.dateTime.weekday(.wide).month().day()))
+                .accessibilityValue(day.isCompleted ? "Reading completed" : "Not completed")
+                .accessibilityAddTraits(.isButton)
+                .accessibilityIdentifier(day.isToday ? "reading-today" : "reading-day-\(day.id)")
+                .accessibilityAction {
+                    guard !isFuture else { return }
+                    session.toggleReading(on: day.date)
                 }
             }
         }
@@ -373,6 +396,9 @@ private struct CurrentlyReadingSection: View {
                 .buttonStyle(.plain)
             }
         }
+        .onChange(of: items) { _, newItems in
+            selectedIndex = min(max(selectedIndex, 0), max(newItems.count - 1, 0))
+        }
     }
 }
 
@@ -381,49 +407,32 @@ private struct PopularSection: View {
     let tiles: [PopularBookTile]
 
     private let spacing: CGFloat = 4
-    private let columnCount: CGFloat = 4
 
     var body: some View {
-        GeometryReader { proxy in
-            let itemWidth = floor((proxy.size.width - (spacing * (columnCount - 1))) / columnCount)
-            let rowCount = ceil(CGFloat(tiles.count) / columnCount)
-            let gridHeight = (rowCount * (itemWidth * 1.46)) + ((rowCount - 1) * spacing)
+        VStack(alignment: .leading, spacing: 10) {
+            HomeSectionHeader(
+                title: "Popular",
+                subtitle: "What readers are saving right now."
+            ) {
+                PopularGridView(environment: environment, tiles: tiles)
+            }
 
-            VStack(alignment: .leading, spacing: 10) {
-                HomeSectionHeader(
-                    title: "Popular",
-                    subtitle: "What readers are saving right now."
-                ) {
-                    PopularGridView(environment: environment, tiles: tiles)
-                }
-
-                LazyVGrid(
-                    columns: Array(repeating: GridItem(.fixed(itemWidth), spacing: spacing), count: Int(columnCount)),
-                    alignment: .leading,
-                    spacing: spacing
-                ) {
-                    ForEach(tiles) { tile in
-                        NavigationLink {
-                            BookDetailView(environment: environment, bookID: tile.bookID, recommendationReason: nil)
-                        } label: {
-                            PopularThumbnail(assetName: tile.assetName, width: itemWidth)
-                        }
-                        .buttonStyle(.plain)
+            LazyVGrid(
+                columns: [GridItem(.adaptive(minimum: 76), spacing: spacing)],
+                alignment: .leading,
+                spacing: spacing
+            ) {
+                ForEach(tiles) { tile in
+                    NavigationLink {
+                        BookDetailView(environment: environment, bookID: tile.bookID, recommendationReason: nil)
+                    } label: {
+                        PopularThumbnail(assetName: tile.assetName)
                     }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(MockSeedData.books.first(where: { $0.id == tile.bookID })?.title ?? "Book")
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .frame(height: 56 + gridHeight, alignment: .top)
         }
-        .frame(height: popularSectionHeight)
-    }
-
-    private var popularSectionHeight: CGFloat {
-        let availableWidth = UIScreen.main.bounds.width - 28
-        let itemWidth = floor((availableWidth - (spacing * (columnCount - 1))) / columnCount)
-        let rowCount = ceil(CGFloat(tiles.count) / columnCount)
-        let gridHeight = (rowCount * (itemWidth * 1.46)) + ((rowCount - 1) * spacing)
-        return 56 + gridHeight
     }
 }
 
@@ -562,23 +571,18 @@ private struct CuratedListMosaic: View {
     }
 }
 
-private struct PopularThumbnail: View {
+struct PopularThumbnail: View {
     let assetName: String
-    let width: CGFloat
 
     var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 10)
-                .fill(Color.white.opacity(0.55))
-
-            Image(assetName)
-                .resizable()
-                .scaledToFill()
-                .frame(width: width - 4, height: (width - 4) * 1.46)
-                .clipped()
-        }
-        .frame(width: width, height: width * 1.46)
-        .clipShape(RoundedRectangle(cornerRadius: 10))
+        Color.white.opacity(0.55)
+            .aspectRatio(1 / 1.46, contentMode: .fit)
+            .overlay {
+                Image(assetName)
+                    .resizable()
+                    .scaledToFill()
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 }
 
@@ -606,8 +610,10 @@ private struct FeaturedReadingCard: View {
                             .font(.footnote.weight(.semibold))
                             .foregroundStyle(Color.white.opacity(0.92))
 
-                        ProgressView(value: progressFraction(progress))
-                            .tint(Color(red: 0.84, green: 0.91, blue: 0.82))
+                        if let fraction = progressFraction(progress) {
+                            ProgressView(value: fraction)
+                                .tint(Color(red: 0.84, green: 0.91, blue: 0.82))
+                        }
                     }
                 }
             }
@@ -647,10 +653,10 @@ private struct FeaturedReadingCard: View {
         }
     }
 
-    private func progressFraction(_ progress: ReadingProgress) -> Double {
+    private func progressFraction(_ progress: ReadingProgress) -> Double? {
         switch progress.progressUnit {
         case .page:
-            guard let pageCount = item.book.pageCount, pageCount > 0 else { return 0.3 }
+            guard let pageCount = item.book.pageCount, pageCount > 0 else { return nil }
             return min(max(Double(progress.progressValue) / Double(pageCount), 0), 1)
         case .percent:
             return min(max(Double(progress.progressValue) / 100, 0), 1)

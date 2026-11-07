@@ -2,3 +2,6 @@ PLAN_*.md
 .DS_Store
 xcuserdata/
 *.xcuserstate
+.build/
+.swiftpm/
+DerivedData/

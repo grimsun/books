@@ -1,18 +1,36 @@
 import Foundation
 
-enum OpenLibraryRepositoryError: Error {
+enum OpenLibraryRepositoryError: LocalizedError {
     case invalidURL
     case invalidResponse
     case notFound
+    case httpStatus(Int)
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidURL: return "This book link is invalid."
+        case .invalidResponse: return "Open Library returned an unexpected response. Please try again."
+        case .notFound: return "This book could not be found."
+        case .httpStatus(429): return "Open Library is busy. Please wait a moment and try again."
+        case .httpStatus: return "Open Library is unavailable. Please try again later."
+        }
+    }
 }
 
+@MainActor
 final class OpenLibraryBooksRepository: BooksRepository {
     private let session: URLSession
     private let decoder = JSONDecoder()
     private let fallback = MockBooksRepository()
+    private var cachedBooks: [String: Book] = [:]
+    private var detailedBookIDs: Set<String> = []
+    private var cachedSearches: [String: [Book]] = [:]
+    private var nextRequestDate = Date.distantPast
+    private let requestInterval: TimeInterval
 
-    init(session: URLSession = .shared) {
+    init(session: URLSession = .shared, requestInterval: TimeInterval = 1) {
         self.session = session
+        self.requestInterval = requestInterval
     }
 
     func searchBooks(query: String) async throws -> [Book] {
@@ -21,77 +39,93 @@ final class OpenLibraryBooksRepository: BooksRepository {
             return try await fallback.searchBooks(query: query)
         }
 
-        let encoded = trimmedQuery.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? trimmedQuery
-        let urlString = "https://openlibrary.org/search.json?q=\(encoded)&limit=20&fields=key,title,author_name,first_publish_year,cover_i,isbn,subject"
-        let response: OpenLibrarySearchResponse = try await request(urlString: urlString)
-        let books = response.docs.map(Self.mapSearchDoc)
-        return books.isEmpty ? try await fallback.searchBooks(query: query) : books
+        if let cached = cachedSearches[trimmedQuery] { return cached }
+        let books = try await search(query: trimmedQuery, limit: 20)
+        cachedSearches[trimmedQuery] = books
+        return books
     }
 
     func fetchBook(id: String) async throws -> Book {
-        guard id.hasPrefix("/") else {
+        guard let workID = Self.workID(id) else {
             return try await fallback.fetchBook(id: id)
         }
-
-        let work: OpenLibraryWorkResponse = try await request(urlString: "https://openlibrary.org\(id).json")
-        let authors = try await fetchAuthors(for: work.authors)
-
-        return Book(
-            id: id,
+        if detailedBookIDs.contains(workID), let cached = cachedBooks[workID] { return cached }
+        let cached = cachedBooks[workID]
+        let work: OpenLibraryWorkResponse
+        do {
+            work = try await request(urlString: "https://openlibrary.org\(workID).json")
+        } catch {
+            try Task.checkCancellation()
+            if let cached { return cached }
+            throw error
+        }
+        var authors = cached?.authors ?? []
+        if authors.isEmpty {
+            authors = try await fetchAuthors(for: work.authors)
+        }
+        let genres = work.subjects.map { subjects in
+            subjects.prefix(3).enumerated().map { index, name in
+                Genre(id: "\(workID)-genre-\(index)", name: name)
+            }
+        } ?? cached?.genres ?? []
+        let book = Book(
+            id: workID,
             title: work.title,
             subtitle: work.subtitle,
             authors: authors,
-            genres: (work.subjects ?? []).prefix(3).enumerated().map { index, name in
-                Genre(id: "\(id)-genre-\(index)", name: name)
-            },
+            genres: genres,
             description: work.description?.textValue,
-            coverURL: Self.coverURL(coverID: work.covers?.first),
-            pageCount: nil,
-            publicationYear: Self.extractYear(from: work.firstPublishDate),
-            isbn10: nil,
-            isbn13: nil
+            coverURL: Self.coverURL(coverID: work.covers?.first(where: { $0 > 0 })) ?? cached?.coverURL,
+            pageCount: cached?.pageCount,
+            publicationYear: Self.extractYear(from: work.firstPublishDate) ?? cached?.publicationYear,
+            isbn10: cached?.isbn10,
+            isbn13: cached?.isbn13
         )
+        cachedBooks[workID] = book
+        detailedBookIDs.insert(workID)
+        return book
     }
 
     func fetchBookByISBN(_ isbn: String) async throws -> Book {
-        let normalizedISBN = isbn.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedISBN = isbn.filter { !$0.isWhitespace && $0 != "-" }.uppercased()
         guard !normalizedISBN.isEmpty else {
             throw OpenLibraryRepositoryError.notFound
         }
 
-        let encoded = "isbn:\(normalizedISBN)".addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? normalizedISBN
-        let urlString = "https://openlibrary.org/search.json?q=\(encoded)&limit=1&fields=key,title,author_name,first_publish_year,cover_i,isbn,subject"
-        let response: OpenLibrarySearchResponse = try await request(urlString: urlString)
-
-        guard let first = response.docs.first else {
-            return try await fallback.fetchBookByISBN(isbn)
+        guard let book = try await search(query: "isbn:\(normalizedISBN)", limit: 1).first else {
+            throw OpenLibraryRepositoryError.notFound
         }
+        return book
+    }
 
-        return Self.mapSearchDoc(first)
+    private func search(query: String, limit: Int) async throws -> [Book] {
+        var components = URLComponents(string: "https://openlibrary.org/search.json")!
+        components.queryItems = [
+            URLQueryItem(name: "q", value: query),
+            URLQueryItem(name: "limit", value: String(limit)),
+            URLQueryItem(name: "fields", value: "key,title,author_name,author_key,first_publish_year,cover_i,isbn,subject,number_of_pages_median")
+        ]
+        guard let url = components.url else { throw OpenLibraryRepositoryError.invalidURL }
+        let response: OpenLibrarySearchResponse = try await request(urlString: url.absoluteString)
+        var seen: Set<String> = []
+        let books = response.docs.map(Self.mapSearchDoc).filter { seen.insert($0.id).inserted }
+        for book in books where !detailedBookIDs.contains(book.id) { cachedBooks[book.id] = book }
+        return books
     }
 
     private func fetchAuthors(for refs: [OpenLibraryAuthorReference]?) async throws -> [Author] {
         guard let refs, !refs.isEmpty else { return [] }
-
-        return try await withThrowingTaskGroup(of: Author?.self) { group in
-            for ref in refs.prefix(3) {
-                group.addTask {
-                    guard let key = ref.author.key.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
-                        return nil
-                    }
-                    let author: OpenLibraryAuthorResponse = try await self.request(urlString: "https://openlibrary.org\(key).json")
-                    return Author(id: ref.author.key, name: author.name)
-                }
+        var authors: [Author] = []
+        for ref in refs.prefix(3) {
+            do {
+                let author: OpenLibraryAuthorResponse = try await request(urlString: "https://openlibrary.org\(ref.author.key).json")
+                authors.append(Author(id: ref.author.key, name: author.name))
+            } catch {
+                try Task.checkCancellation()
+                // Author enrichment should never prevent opening the book itself.
             }
-
-            var authors: [Author] = []
-            for try await author in group {
-                if let author {
-                    authors.append(author)
-                }
-            }
-            return authors
         }
+        return authors
     }
 
     private func request<T: Decodable>(urlString: String) async throws -> T {
@@ -99,12 +133,22 @@ final class OpenLibraryBooksRepository: BooksRepository {
             throw OpenLibraryRepositoryError.invalidURL
         }
 
+        while nextRequestDate > Date() {
+            try await Task.sleep(for: .seconds(max(0, nextRequestDate.timeIntervalSinceNow)))
+        }
+        try Task.checkCancellation()
+        nextRequestDate = Date().addingTimeInterval(requestInterval)
+
         var request = URLRequest(url: url)
         request.setValue("Bookflow iOS Prototype", forHTTPHeaderField: "User-Agent")
+        request.timeoutInterval = 20
 
         let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse, 200..<300 ~= httpResponse.statusCode else {
+        guard let httpResponse = response as? HTTPURLResponse else {
             throw OpenLibraryRepositoryError.invalidResponse
+        }
+        guard 200..<300 ~= httpResponse.statusCode else {
+            throw httpResponse.statusCode == 404 ? OpenLibraryRepositoryError.notFound : .httpStatus(httpResponse.statusCode)
         }
 
         return try decoder.decode(T.self, from: data)
@@ -116,16 +160,17 @@ final class OpenLibraryBooksRepository: BooksRepository {
         }
 
         return Book(
-            id: doc.key,
+            id: workID(doc.key) ?? doc.key,
             title: doc.title,
             subtitle: nil,
             authors: (doc.authorName ?? []).enumerated().map { index, name in
-                Author(id: doc.authorKey?[safe: index] ?? "\(doc.key)-author-\(index)", name: name)
+                let key = doc.authorKey?[safe: index]
+                return Author(id: key.map { $0.hasPrefix("/") ? $0 : "/authors/\($0)" } ?? "\(doc.key)-author-\(index)", name: name)
             },
             genres: genres,
             description: nil,
             coverURL: coverURL(coverID: doc.coverID),
-            pageCount: nil,
+            pageCount: doc.pageCount.flatMap { $0 > 0 ? $0 : nil },
             publicationYear: doc.firstPublishYear,
             isbn10: doc.isbn?.first(where: { $0.count == 10 }),
             isbn13: doc.isbn?.first(where: { $0.count == 13 })
@@ -133,14 +178,20 @@ final class OpenLibraryBooksRepository: BooksRepository {
     }
 
     private static func coverURL(coverID: Int?) -> URL? {
-        guard let coverID else { return nil }
-        return URL(string: "https://covers.openlibrary.org/b/id/\(coverID)-L.jpg")
+        guard let coverID, coverID > 0 else { return nil }
+        return URL(string: "https://covers.openlibrary.org/b/id/\(coverID)-L.jpg?default=false")
+    }
+
+    private static func workID(_ id: String) -> String? {
+        let identifier = id.hasPrefix("/works/") ? String(id.dropFirst(7)) : id
+        guard identifier.range(of: "^OL[0-9]+W$", options: .regularExpression) != nil else { return nil }
+        return "/works/\(identifier)"
     }
 
     private static func extractYear(from firstPublishDate: String?) -> Int? {
         guard let firstPublishDate else { return nil }
-        let digits = firstPublishDate.prefix(4)
-        return Int(digits)
+        guard let range = firstPublishDate.range(of: "\\b[12][0-9]{3}\\b", options: .regularExpression) else { return nil }
+        return Int(firstPublishDate[range])
     }
 }
 
@@ -157,6 +208,7 @@ private struct OpenLibrarySearchDocument: Decodable {
     let coverID: Int?
     let isbn: [String]?
     let subject: [String]?
+    let pageCount: Int?
 
     enum CodingKeys: String, CodingKey {
         case key
@@ -167,6 +219,7 @@ private struct OpenLibrarySearchDocument: Decodable {
         case coverID = "cover_i"
         case isbn
         case subject
+        case pageCount = "number_of_pages_median"
     }
 }
 

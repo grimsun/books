@@ -81,6 +81,22 @@ enum ReadingPace: String, Codable, CaseIterable, Identifiable {
 struct ReadingProgress: Codable, Hashable {
     var progressUnit: ProgressUnit
     var progressValue: Int
+
+    func fraction(pageCount: Int?) -> Double? {
+        let total: Int
+        switch progressUnit {
+        case .page:
+            guard let pageCount, pageCount > 0 else { return nil }
+            total = pageCount
+        case .percent:
+            total = 100
+        }
+        return min(max(Double(progressValue) / Double(total), 0), 1)
+    }
+
+    var label: String {
+        progressUnit == .page ? "Page \(progressValue)" : "\(progressValue)% complete"
+    }
 }
 
 struct LibraryItem: Identifiable, Codable, Equatable {

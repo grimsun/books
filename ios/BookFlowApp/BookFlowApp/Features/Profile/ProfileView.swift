@@ -79,6 +79,8 @@ struct ProfileView: View {
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(.tertiary)
                 }
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
         }
@@ -122,6 +124,7 @@ private struct SettingsView: View {
         List {
             Section("Home") {
                 Toggle("Show reading rhythm", isOn: $session.showWeeklyRhythm)
+                    .accessibilityIdentifier("showReadingRhythm")
             }
         }
         .navigationTitle("Settings")

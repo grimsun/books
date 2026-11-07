@@ -7,6 +7,7 @@ struct OnboardingView: View {
     @State private var selectedAuthors = Set<Author>()
     @State private var readingPace: ReadingPace = .moderate
     @State private var isSigningIn = false
+    @State private var errorMessage: String?
 
     private let availableGenres = [MockSeedData.fantasy, MockSeedData.literary, MockSeedData.sciFi, MockSeedData.classics]
     private let availableAuthors = [MockSeedData.leGuin, MockSeedData.butler, MockSeedData.murakami, MockSeedData.martel]
@@ -40,6 +41,12 @@ struct OnboardingView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(isSigningIn)
+
+                if let errorMessage {
+                    Text(errorMessage)
+                        .font(.footnote)
+                        .foregroundStyle(.red)
+                }
             }
             .padding()
         }
@@ -56,18 +63,21 @@ struct OnboardingView: View {
         isSigningIn = true
         defer { isSigningIn = false }
 
-        if let user = try? await environment.authRepository.signInPlaceholder() {
+        errorMessage = nil
+        do {
+            let user = try await environment.authRepository.signInPlaceholder()
+            let profile = UserPreferenceProfile(
+                favoriteGenres: availableGenres.filter { selectedGenres.contains($0) },
+                favoriteAuthors: availableAuthors.filter { selectedAuthors.contains($0) },
+                dislikedGenres: [],
+                readingPace: readingPace
+            )
+            try await environment.profileRepository.updatePreferences(profile)
             environment.session.currentUser = user
+            environment.session.hasCompletedOnboarding = true
+        } catch {
+            errorMessage = error.localizedDescription
         }
-
-        let profile = UserPreferenceProfile(
-            favoriteGenres: Array(selectedGenres),
-            favoriteAuthors: Array(selectedAuthors),
-            dislikedGenres: [],
-            readingPace: readingPace
-        )
-        try? await environment.profileRepository.updatePreferences(profile)
-        environment.session.hasCompletedOnboarding = true
     }
 }
 

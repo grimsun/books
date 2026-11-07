@@ -5,6 +5,8 @@ struct LibraryView: View {
 
     @State private var selectedShelf: Shelf?
     @State private var items: [LibraryItem] = []
+    @State private var isLoading = true
+    @State private var errorMessage: String?
 
     private let pageBackground = LinearGradient(
         colors: [
@@ -39,7 +41,19 @@ struct LibraryView: View {
                     .padding(.horizontal, 1)
                 }
 
-                if items.isEmpty {
+                if isLoading {
+                    ProgressView("Loading library...")
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 48)
+                } else if let errorMessage {
+                    ContentUnavailableView {
+                        Label("Couldn't Load Library", systemImage: "exclamationmark.triangle")
+                    } description: {
+                        Text(errorMessage)
+                    } actions: {
+                        Button("Try Again") { Task { await loadItems() } }
+                    }
+                } else if items.isEmpty {
                     ContentUnavailableView(
                         selectedShelf == nil ? "No Books Yet" : "No \(selectedShelf?.title ?? "Books") Yet",
                         systemImage: "books.vertical",
@@ -56,6 +70,7 @@ struct LibraryView: View {
                                 LibraryItemCard(item: item)
                             }
                             .buttonStyle(.plain)
+                            .accessibilityIdentifier("library-book-\(item.book.id)")
                         }
                     }
                 }
@@ -67,17 +82,24 @@ struct LibraryView: View {
         .background(pageBackground.ignoresSafeArea())
         .navigationTitle("Library")
         .navigationBarTitleDisplayMode(.inline)
-        .task {
+        .task(id: "\(selectedShelf?.rawValue ?? "all")-\(environment.libraryRevision)") {
             await loadItems()
-        }
-        .onChange(of: selectedShelf) { _, _ in
-            Task { await loadItems() }
         }
     }
 
     @MainActor
     private func loadItems() async {
-        items = (try? await environment.libraryRepository.fetchLibrary(shelf: selectedShelf)) ?? []
+        let shelf = selectedShelf
+        isLoading = true
+        errorMessage = nil
+        defer { if !Task.isCancelled { isLoading = false } }
+        do {
+            let loaded = try await environment.libraryRepository.fetchLibrary(shelf: shelf)
+            try Task.checkCancellation()
+            items = loaded
+        } catch {
+            if !Task.isCancelled { errorMessage = error.localizedDescription }
+        }
     }
 
     private func shelfChip(title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
@@ -133,22 +155,14 @@ private struct LibraryItemCard: View {
 
                 if let progress = item.progress {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("Page \(progress.progressValue)")
+                        Text(progress.label)
                             .font(.system(size: 13, weight: .semibold, design: .rounded))
                             .foregroundStyle(.primary)
 
-                        GeometryReader { geometry in
-                            let fill = max(0.12, min(CGFloat(progress.progressValue) / 400, 1))
-
-                            Capsule(style: .continuous)
-                                .fill(Color.black.opacity(0.08))
-                                .overlay(alignment: .leading) {
-                                    Capsule(style: .continuous)
-                                        .fill(Color(red: 0.22, green: 0.45, blue: 0.29))
-                                        .frame(width: geometry.size.width * fill)
-                                }
+                        if let fraction = progress.fraction(pageCount: item.book.pageCount) {
+                            ProgressView(value: fraction)
+                                .tint(Color(red: 0.22, green: 0.45, blue: 0.29))
                         }
-                        .frame(height: 8)
                     }
                 }
 

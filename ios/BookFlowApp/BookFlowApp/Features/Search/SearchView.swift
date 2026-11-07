@@ -4,7 +4,8 @@ struct SearchView: View {
     let environment: AppEnvironment
 
     @State private var query = ""
-    @State private var results: [Book] = []
+    @State private var search = BookSearchModel()
+    @State private var retryCount = 0
 
     private let pageBackground = LinearGradient(
         colors: [
@@ -19,7 +20,20 @@ struct SearchView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                if results.isEmpty {
+                if search.isLoading {
+                    ProgressView("Searching books...")
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 56)
+                } else if let error = search.errorMessage {
+                    ContentUnavailableView {
+                        Label("Couldn't Search", systemImage: "wifi.exclamationmark")
+                    } description: {
+                        Text(error)
+                    } actions: {
+                        Button("Try Again") { retryCount += 1 }
+                            .buttonStyle(.bordered)
+                    }
+                } else if search.results.isEmpty {
                     ContentUnavailableView(
                         query.isEmpty ? "Start Searching" : "No Results",
                         systemImage: "books.vertical",
@@ -29,13 +43,14 @@ struct SearchView: View {
                     .padding(.top, 56)
                 } else {
                     LazyVStack(spacing: 14) {
-                        ForEach(results) { book in
+                        ForEach(search.results) { book in
                             NavigationLink {
                                 BookDetailView(environment: environment, bookID: book.id, recommendationReason: nil)
                             } label: {
                                 SearchResultCard(book: book)
                             }
                             .buttonStyle(.plain)
+                            .accessibilityIdentifier("search-book-\(book.id)")
                         }
                     }
                 }
@@ -51,17 +66,15 @@ struct SearchView: View {
         .textInputAutocapitalization(.words)
         .autocorrectionDisabled()
         .scrollDismissesKeyboard(.immediately)
-        .task {
-            if results.isEmpty {
-                results = (try? await environment.booksRepository.searchBooks(query: "")) ?? []
-            }
-        }
-        .onChange(of: query) { _, newValue in
-            Task {
-                results = (try? await environment.booksRepository.searchBooks(query: newValue)) ?? []
-            }
+        .task(id: SearchRequest(query: query, retryCount: retryCount)) {
+            await search.search(query: query, using: environment.booksRepository)
         }
     }
+}
+
+private struct SearchRequest: Equatable {
+    let query: String
+    let retryCount: Int
 }
 
 private struct SearchResultCard: View {

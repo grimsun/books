@@ -24,6 +24,7 @@ struct ReadingDayStatus: Identifiable, Hashable {
     let label: String
     var isCompleted: Bool
     let isToday: Bool
+    let date: Date
 }
 
 enum MockSeedData {
@@ -45,10 +46,10 @@ enum MockSeedData {
             authors: [leGuin],
             genres: [fantasy],
             description: "A young wizard grows into power, responsibility, and restraint.",
-            coverURL: URL(string: "https://covers.openlibrary.org/b/id/146576-L.jpg"),
+            coverURL: URL(string: "https://covers.openlibrary.org/b/id/13617691-L.jpg?default=false"),
             pageCount: 205,
             publicationYear: 1968,
-            isbn10: "0553383044",
+            isbn10: "0553383043",
             isbn13: "9780553383041"
         ),
         Book(
@@ -58,7 +59,7 @@ enum MockSeedData {
             authors: [leGuin],
             genres: [sciFi, literary],
             description: "A diplomat navigates politics, culture, and identity on a frozen world.",
-            coverURL: URL(string: "https://covers.openlibrary.org/b/id/240726-L.jpg"),
+            coverURL: URL(string: "https://covers.openlibrary.org/b/id/10618463-L.jpg?default=false"),
             pageCount: 304,
             publicationYear: 1969,
             isbn10: "0441478123",
@@ -71,7 +72,7 @@ enum MockSeedData {
             authors: [butler],
             genres: [sciFi, classics],
             description: "A modern Black woman is pulled repeatedly into the antebellum South.",
-            coverURL: URL(string: "https://covers.openlibrary.org/b/id/8231856-L.jpg"),
+            coverURL: URL(string: "https://covers.openlibrary.org/b/id/8745330-L.jpg?default=false"),
             pageCount: 288,
             publicationYear: 1979,
             isbn10: "0807083690",
@@ -84,7 +85,7 @@ enum MockSeedData {
             authors: [murakami],
             genres: [literary, fantasy],
             description: "A surreal coming-of-age journey braided with metaphysical mystery.",
-            coverURL: URL(string: "https://covers.openlibrary.org/b/id/240727-L.jpg"),
+            coverURL: URL(string: "https://covers.openlibrary.org/b/id/4982600-L.jpg?default=false"),
             pageCount: 505,
             publicationYear: 2002,
             isbn10: "1400079276",
@@ -97,7 +98,7 @@ enum MockSeedData {
             authors: [martel],
             genres: [literary],
             description: "A shipwreck survivor tells an astonishing story of survival and belief.",
-            coverURL: URL(string: "https://covers.openlibrary.org/b/id/240728-L.jpg"),
+            coverURL: URL(string: "https://covers.openlibrary.org/b/id/12840573-L.jpg?default=false"),
             pageCount: 352,
             publicationYear: 2001,
             isbn10: "0156027321",
@@ -156,9 +157,9 @@ enum MockSeedData {
         PopularBookTile(id: "popular_7", assetName: "Popular7", bookID: books[3].id),
         PopularBookTile(id: "popular_8", assetName: "Popular8", bookID: books[2].id),
         PopularBookTile(id: "popular_9", assetName: "Popular9", bookID: books[4].id),
-        PopularBookTile(id: "popular_10", assetName: "Popular2", bookID: books[1].id),
-        PopularBookTile(id: "popular_11", assetName: "Popular4", bookID: books[0].id),
-        PopularBookTile(id: "popular_12", assetName: "Popular7", bookID: books[2].id)
+        PopularBookTile(id: "popular_10", assetName: "Popular2", bookID: books[0].id),
+        PopularBookTile(id: "popular_11", assetName: "Popular4", bookID: books[3].id),
+        PopularBookTile(id: "popular_12", assetName: "Popular7", bookID: books[3].id)
     ]
 
     static let curatedLists: [CuratedBookList] = [
@@ -189,16 +190,6 @@ enum MockSeedData {
         MoodRecommendationShelf(id: "mood_comfort", title: "Comfort", recommendationBookIDs: [books[4].id, books[0].id, books[3].id]),
         MoodRecommendationShelf(id: "mood_heavy", title: "Heavy", recommendationBookIDs: [books[2].id, books[1].id, books[4].id]),
         MoodRecommendationShelf(id: "mood_smart", title: "Smart", recommendationBookIDs: [books[1].id, books[3].id, books[2].id])
-    ]
-
-    static let weeklyReadingStatus: [ReadingDayStatus] = [
-        ReadingDayStatus(id: "mon", label: "M", isCompleted: true, isToday: false),
-        ReadingDayStatus(id: "tue", label: "T", isCompleted: false, isToday: false),
-        ReadingDayStatus(id: "wed", label: "W", isCompleted: true, isToday: false),
-        ReadingDayStatus(id: "thu", label: "T", isCompleted: false, isToday: false),
-        ReadingDayStatus(id: "fri", label: "F", isCompleted: true, isToday: false),
-        ReadingDayStatus(id: "sat", label: "S", isCompleted: false, isToday: false),
-        ReadingDayStatus(id: "sun", label: "S", isCompleted: false, isToday: true)
     ]
 
     static let defaultUser = User(id: "user_vlad", displayName: "Vlad")

@@ -7,10 +7,12 @@
 	objects = {
 
 /* Begin PBXFileReference section */
+		B00CF1000000000000000001 /* BookFlowAppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; path = BookFlowAppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		F57704732F5E757F008DE910 /* BookFlowApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BookFlowApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		B00CF1000000000000000002 /* BookFlowAppUITests */ = {isa = PBXFileSystemSynchronizedRootGroup; path = BookFlowAppUITests; sourceTree = "<group>"; };
 		F57704752F5E757F008DE910 /* BookFlowApp */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = BookFlowApp;
@@ -19,6 +21,7 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		B00CF1000000000000000003 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 		F57704702F5E757F008DE910 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -33,6 +36,7 @@
 			isa = PBXGroup;
 			children = (
 				F57704752F5E757F008DE910 /* BookFlowApp */,
+				B00CF1000000000000000002 /* BookFlowAppUITests */,
 				F57704742F5E757F008DE910 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -41,6 +45,7 @@
 			isa = PBXGroup;
 			children = (
 				F57704732F5E757F008DE910 /* BookFlowApp.app */,
+				B00CF1000000000000000001 /* BookFlowAppUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -48,6 +53,19 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		B00CF1000000000000000004 /* BookFlowAppUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B00CF1000000000000000005;
+			buildPhases = (B00CF1000000000000000006, B00CF1000000000000000003, B00CF1000000000000000007);
+			buildRules = ();
+			dependencies = (B00CF1000000000000000008);
+			fileSystemSynchronizedGroups = (B00CF1000000000000000002);
+			name = BookFlowAppUITests;
+			packageProductDependencies = ();
+			productName = BookFlowAppUITests;
+			productReference = B00CF1000000000000000001;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 		F57704722F5E757F008DE910 /* BookFlowApp */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = F577047E2F5E7580008DE910 /* Build configuration list for PBXNativeTarget "BookFlowApp" */;
@@ -100,11 +118,13 @@
 			projectRoot = "";
 			targets = (
 				F57704722F5E757F008DE910 /* BookFlowApp */,
+				B00CF1000000000000000004 /* BookFlowAppUITests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		B00CF1000000000000000007 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 		F57704712F5E757F008DE910 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -115,6 +135,7 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		B00CF1000000000000000006 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 		F577046F2F5E757F008DE910 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -124,7 +145,45 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXContainerItemProxy section */
+		B00CF1000000000000000009 = {isa = PBXContainerItemProxy; containerPortal = F577046B2F5E757F008DE910; proxyType = 1; remoteGlobalIDString = F57704722F5E757F008DE910; remoteInfo = BookFlowApp; };
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXTargetDependency section */
+		B00CF1000000000000000008 = {isa = PBXTargetDependency; target = F57704722F5E757F008DE910; targetProxy = B00CF1000000000000000009; };
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		B00CF100000000000000000A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				PRODUCT_BUNDLE_IDENTIFIER = lab.BookFlowAppUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = BookFlowApp;
+			};
+			name = Debug;
+		};
+		B00CF100000000000000000B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				PRODUCT_BUNDLE_IDENTIFIER = lab.BookFlowAppUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = BookFlowApp;
+			};
+			name = Release;
+		};
 		F577047C2F5E7580008DE910 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -309,6 +368,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		B00CF1000000000000000005 = {isa = XCConfigurationList; buildConfigurations = (B00CF100000000000000000A, B00CF100000000000000000B); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 		F577046E2F5E757F008DE910 /* Build configuration list for PBXProject "BookFlowApp" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

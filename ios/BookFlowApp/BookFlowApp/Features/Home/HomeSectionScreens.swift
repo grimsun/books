@@ -51,13 +51,10 @@ struct PopularGridView: View {
                     NavigationLink {
                         BookDetailView(environment: environment, bookID: tile.bookID, recommendationReason: nil)
                     } label: {
-                        Image(tile.assetName)
-                            .resizable()
-                            .scaledToFill()
-                            .aspectRatio(0.68, contentMode: .fit)
-                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                        PopularThumbnail(assetName: tile.assetName)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(MockSeedData.books.first(where: { $0.id == tile.bookID })?.title ?? "Book")
                 }
             }
             .padding(14)
